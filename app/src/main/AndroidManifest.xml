@@ -16,6 +16,22 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <receiver android:name=".CarConnectionListener">
+            <intent-filter>
+                <action android:name="com.bmwgroup.connected.accessory.ACTION_CAR_ACCESSORY_ATTACHED" />
+                <action android:name="com.bmwgroup.connected.accessory.ACTION_CAR_ACCESSORY_DETACHED" />
+            </intent-filter>
+        </receiver>
+
+
+        <service android:name=".AppLauncher"
+            android:label="@string/app_name"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="me.hufman.idriveaudioappsusb.AppLauncher.START" />
+            </intent-filter>
+        </service>
     </application>
 
 </manifest>

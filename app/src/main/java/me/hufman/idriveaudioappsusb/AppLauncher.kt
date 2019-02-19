@@ -24,6 +24,7 @@ class AppLauncher: Service() {
 	override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
 		if (intent?.action == START_COMMAND) {
 			registerCarListener(this)
+			combinedCallback()  // try to launch apps if we are ready
 		}
 		return Service.START_STICKY
 	}
@@ -39,10 +40,8 @@ class AppLauncher: Service() {
 		IDriveConnectionListener.callback = Runnable {
 			combinedCallback()
 		}
-		// Also try to connect to the SecurityService
-		SecurityService.subscribe(Runnable {
-			combinedCallback()
-		})
+
+		// we don't need to connect to a SecurityService, but we need to locate them at least
 		SecurityService.connect(context)
 
 		// also listen for all the car apps
@@ -60,28 +59,35 @@ class AppLauncher: Service() {
 	}
 
 	fun findConnectedApp(): String? {
-		if (IDriveConnectionListener.brand == "BMW") {
-			val installedBMW = SecurityService.activeSecurityConnections.keys.filter { it.startsWith("BMW") }.firstOrNull()
-			if (installedBMW == null) {
-				Log.e(TAG, "Failed to find Connected app to match the announced Brand ${IDriveConnectionListener.brand}")
-				return null
+		Log.d(TAG, "Looking for Connected app for brand ${IDriveConnectionListener.brand} among installed services ${SecurityService.installedSecurityServices}")
+		val packageName = when (IDriveConnectionListener.brand) {
+			"BMW" -> {
+				val installedBMW = SecurityService.installedSecurityServices.firstOrNull { it.startsWith("BMW") }
+				if (installedBMW == null) {
+					Log.e(TAG, "Failed to find Connected app to match the announced Brand ${IDriveConnectionListener.brand}")
+					return null
+				}
+				SecurityService.knownSecurityServices[installedBMW]?.split("\\.(?=[^.]*$)".toRegex())?.first()
 			}
-			return SecurityService.knownSecurityServices[installedBMW]?.split("\\.(?=[^.]*$)".toRegex())?.first()
-		}
-		if (IDriveConnectionListener.brand == "MINI") {
-			val installedMini = SecurityService.activeSecurityConnections.keys.filter { it.startsWith("Mini") }.firstOrNull()
-			if (installedMini == null) {
-				Log.e(TAG, "Failed to find Connected app to match the announced Brand ${IDriveConnectionListener.brand}")
-				return null
+			"MINI" -> {
+				val installedMini = SecurityService.installedSecurityServices.firstOrNull { it.startsWith("Mini") }
+				if (installedMini == null) {
+					Log.e(TAG, "Failed to find Connected app to match the announced Brand ${IDriveConnectionListener.brand}")
+					return null
+				}
+				SecurityService.knownSecurityServices[installedMini]?.split("\\.(?=[^.]*\$)".toRegex())?.first()
 			}
-			return SecurityService.knownSecurityServices[installedMini]?.split("\\.(?=[^.]*\$)".toRegex())?.first()
+			else -> {
+				Log.e(TAG, "Unexpected car brand ${IDriveConnectionListener.brand}")
+				null
+			}
 		}
-		Log.e(TAG, "Unexpected car brand ${IDriveConnectionListener.brand}")
-		return null
+		Log.d(TAG, "Found Connected app for brand ${IDriveConnectionListener.brand}: $packageName")
+		return packageName
 	}
 
 	fun isCarReady(): Boolean {
-		return IDriveConnectionListener.isConnected && SecurityService.isConnected()
+		return IDriveConnectionListener.isConnected
 	}
 
 	/* Check preconditions and start all the apps */
